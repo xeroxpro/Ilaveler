@@ -1,0 +1,91 @@
+# add follows to the end
+[OSEv3:children]
+masters
+nodes
+etcd
+
+[OSEv3:vars]
+# admin user created in previous section
+ansible_ssh_user=origin
+ansible_become=true
+openshift_deployment_type=origin
+
+# use HTPasswd for authentication
+openshift_master_identity_providers=[{'name': 'htpasswd_auth', 'login': 'true', 'challenge': 'true', 'kind': 'HTPasswdPasswordIdentityProvider'}]
+# define default sub-domain for Master node
+openshift_master_default_subdomain=apps.srv.world
+# allow unencrypted connection within cluster
+openshift_docker_insecure_registries=172.30.0.0/16
+
+[masters]
+ctrl.srv.world openshift_schedulable=true containerized=false
+
+[etcd]
+ctrl.srv.world
+
+[nodes]
+# defined values for [openshift_node_group_name] in the file below
+# [/usr/share/ansible/openshift-ansible/roles/openshift_facts/defaults/main.yml]
+ctrl.srv.world openshift_node_group_name='node-config-master-infra'
+node01.srv.world openshift_node_group_name='node-config-compute'
+node02.srv.world openshift_node_group_name='node-config-compute'
+
+# if you'd like to separate Master node feature and Infra node feature, set like follows
+# ctrl.srv.world openshift_node_group_name='node-config-master'
+# node01.srv.world openshift_node_group_name='node-config-compute'
+# node02.srv.world openshift_node_group_name='node-config-infra'
+
+# run Prerequisites Playbook
+[origin@ctrl ~]$ ansible-playbook /usr/share/ansible/openshift-ansible/playbooks/prerequisites.yml 
+
+................
+................
+
+PLAY RECAP *********************************************************************
+ctrl.srv.world             : ok=90   changed=21   unreachable=0    failed=0
+localhost                  : ok=11   changed=0    unreachable=0    failed=0
+node01.srv.world           : ok=65   changed=20   unreachable=0    failed=0
+node02.srv.world           : ok=65   changed=20   unreachable=0    failed=0
+
+
+INSTALLER STATUS ***************************************************************
+Initialization  : Complete (0:01:19)
+
+# run Deploy Cluster Playbook
+[origin@ctrl ~]$ ansible-playbook /usr/share/ansible/openshift-ansible/playbooks/deploy_cluster.yml 
+
+................
+................
+
+PLAY RECAP *********************************************************************
+ctrl.srv.world             : ok=620  changed=274  unreachable=0    failed=0
+localhost                  : ok=12   changed=0    unreachable=0    failed=0
+node01.srv.world           : ok=119  changed=57   unreachable=0    failed=0
+node02.srv.world           : ok=119  changed=57   unreachable=0    failed=0
+
+
+INSTALLER STATUS ***************************************************************
+Initialization              : Complete (0:00:39)
+Health Check                : Complete (0:00:55)
+Node Bootstrap Preparation  : Complete (0:06:27)
+etcd Install                : Complete (0:01:13)
+Master Install              : Complete (0:05:25)
+Master Additional Install   : Complete (0:01:07)
+Node Join                   : Complete (0:00:18)
+Hosted Install              : Complete (0:01:13)
+Web Console Install         : Complete (0:00:39)
+Service Catalog Install     : Complete (0:02:24)
+
+# show state
+[origin@ctrl ~]$ oc get nodes 
+NAME               STATUS    ROLES          AGE       VERSION
+ctrl.srv.world     Ready     infra,master   9m        v1.10.0+b81c8f8
+node01.srv.world   Ready     compute        5m        v1.10.0+b81c8f8
+node02.srv.world   Ready     compute        5m        v1.10.0+b81c8f8
+
+# show state with labels
+[origin@ctrl ~]$ oc get nodes --show-labels=true 
+NAME               STATUS    ROLES          AGE       VERSION           LABELS
+ctrl.srv.world     Ready     infra,master   9m        v1.10.0+b81c8f8   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,kubernetes.io/hostname=ctrl.srv.world,node-role.kubernetes.io/infra=true,node-role.kubernetes.io/master=true
+node01.srv.world   Ready     compute        5m        v1.10.0+b81c8f8   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,kubernetes.io/hostname=node01.srv.world,node-role.kubernetes.io/compute=true
+node02.srv.world   Ready     compute        5m        v1.10.0+b81c8f8   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,kubernetes.io/hostname=node02.srv.world,node-role.kubernetes.io/compute=true
